@@ -1,0 +1,65 @@
+const fetchBusData = async () => {
+  try {
+    const response = await fetch("/next-departure");
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const buses = response.json();
+    return buses;
+  } catch (error) {
+    console.error(`Error fetching bus data: ${error} `);
+  }
+};
+
+const formatDate = (date) => date.toISOString().split("T")[0];
+const formatTime = (date) => date.toTimeString().split(" ")[0].slice(0, 5);
+
+const renderBusData = (buses) => {
+  const tableBody = document.querySelector("#bus tbody");
+  tableBody.textContent = "";
+  buses.forEach((bus) => {
+    const row = document.createElement("tr");
+
+    const nextDepartureDateTimeUTC = new Date(
+      `${bus.nextDeparture.date}T${bus.nextDeparture.time}Z`
+    );
+    row.innerHTML = `
+    <td>${bus.busNumber}</td>
+    <td>${bus.startPoint} - ${bus.endPoint}</td>
+    <td>${formatDate(nextDepartureDateTimeUTC)}</td>
+    <td>${formatTime(nextDepartureDateTimeUTC)}</td>
+    <td>${bus.nextDeparture.remaining}</td>
+    `;
+    tableBody.append(row);
+  });
+  //console.log(buses);
+};
+
+const initWebSocket = () => {
+  const ws = new WebSocket(`ws://${location.host}`);
+  ws.addEventListener("open", () => {
+    console.log("Websocket connection");
+  });
+
+  ws.addEventListener("message", (event) => {
+    const buses = JSON.parse(event.data);
+    //console.log("buses: ", buses);
+    renderBusData(buses);
+  });
+
+  ws.addEventListener("error", (error) => {
+    console.log(`Websocket connection: ${error}`);
+  });
+
+  ws.addEventListener("close", () => {
+    console.log(`Websocket connection close`);
+  });
+};
+
+const init = async () => {
+  const buses = await fetchBusData();
+  renderBusData(buses);
+  initWebSocket();
+};
+
+init();
